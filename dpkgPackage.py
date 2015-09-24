@@ -31,6 +31,36 @@ def sec2datetime(sec):
     t=localtime(sec)
     return time.strftime("%Y-%m-%d %H:%M:%S",t)
 
+class Filter:
+    def __init__(self,name):
+        self.name=name
+        if(self.name=='upgrade'):
+            self.items={'packages':list(),'datetimes':list(),'versionChange':list()}
+        else:
+            self.items={'packages':list(),'datetimes':list(),'versions':list()}
+
+    def add_item(self,package,datetime,version):
+        self.items['packges'].append(package)
+        self.items['datetimes'].append(datetime)
+        if(self.name=='upgrade'):
+            self.items['versionChange'].append(version)
+        else:
+            self.items['versions'].append(version)
+
+    def delete_item(self,index):
+        self.items['packges'].pop(index)
+        self.items['datetimes'].pop(index)
+        if(self.name=='upgrade'):
+            self.items['versionChange'].pop(index)
+        else:
+            self.items['versions'].pop(index)
+
+    def index_of_package(self,package_name):
+        try:
+            index=self.items['packages'].index(package_name)
+            return index
+        except:
+            return None
 
 
 def get_dict_by_lines(lines):
