@@ -40,15 +40,23 @@ class Filter:
             self.items={'packages':list(),'datetimes':list(),'versions':list()}
 
     def add_item(self,package,datetime,version):
-        self.items['packges'].append(package)
-        self.items['datetimes'].append(datetime)
-        if(self.name=='upgrade'):
-            self.items['versionChange'].append(version)
-        else:
-            self.items['versions'].append(version)
+        index=self.is_in_filter(package,datetime,version)
+        if(index!=None):#already in this filter,overwrite
+            self.items['datetimes'][index]=datetime
+            if(self.name=='upgrade'):
+                self.items['versionChange'][index]=version
+            else:
+                self.items['versions'][index]=version
+        else: #not in filter
+            self.items['packages'].append(package)
+            self.items['datetimes'].append(datetime)
+            if(self.name=='upgrade'):
+                self.items['versionChange'].append(version)
+            else:
+                self.items['versions'].append(version)
 
     def delete_item(self,index):
-        self.items['packges'].pop(index)
+        self.items['packages'].pop(index)
         self.items['datetimes'].pop(index)
         if(self.name=='upgrade'):
             self.items['versionChange'].pop(index)
@@ -61,87 +69,144 @@ class Filter:
             return index
         except:
             return None
+    def is_in_filter(self,package_name,datetime,version):
+        index=self.index_of_package(package_name)
+        if(index!=None and datetime-self.items['datetimes'][index]<6000):
+            if(self.name=='upgrade'):
+                if(self.items['versionChange'][index][1]==version):
+                    return index
+            else:
+                if(self.items['versions'][index]==version):
+                    return index
+        return None
 
 
-def get_dict_by_lines(lines):
+def get_removed_packages(lines):
     result_dict={"packages":list(),"datetimes":list(),"versions":list()}
+    len_of_lines=len(lines)
+    gcount=-1
     for line in lines:
+        gcount+=1
         items=line.split(" ")
         datetime=datetime2sec(items[0]+" "+items[1])
-        package=items[4]
-        version=items[5].strip()
-        try:
-            index=result_dict['packages'].index(package)
-            if(result_dict['datetimes'][index]<=datetime):
-                result_dict['datetimes'][index]=datetime
-                result_dict['versions'][index]=version
-        except:
-            dict_item_add(result_dict,package,datetime,version=version)
+        if(items[2]=='status'):
+            package=items[4]
+            version=items[5].strip()
+            try:
+                index=result_dict['packages'].index(package)
+                if(result_dict['datetimes'][index]<=datetime):
+                    result_dict['datetimes'][index]=datetime
+                    result_dict['versions'][index]=version
+            except:
+                dict_item_add(result_dict,package,datetime,version=version)
+        elif(items[2]=='remove'):#in some conditions,only remove line can be found,no not-installed
+#followed,so add it to removed packages dict,too
+            if(gcount+1<len_of_lines):
+                next_items=lines[gcount+1].split()
+                if(next_items[3]!='not-installed'):
+                    package=items[3]
+                    version=items[4]
+                    try:
+                        index=result_dict['packages'].index(package)
+                        if(result_dict['datetimes'][index]<=datetime):
+                            result_dict['datetimes'][index]=datetime
+                            result_dict['versions'][index]=version
+                    except:
+                        dict_item_add(result_dict,package,datetime,version=version)
+            else:
+                package=items[3]
+                version=items[4]
+                try:
+                    index=result_dict['packages'].index(package)
+                    if(result_dict['datetimes'][index]<=datetime):
+                        result_dict['datetimes'][index]=datetime
+                        result_dict['versions'][index]=version
+                except:
+                    dict_item_add(result_dict,package,datetime,version=version)
+
+
 
     return result_dict
 
 def get_installed_packages(lines):
-    filter_trigproc={'packages':list(),'datetimes':list(),'versions':list()}
-    filter_upgrade={'packages':list(),'datetimes':list(),'versionChange':list()}
+    filter_trigproc=Filter('trigproc')
+    filter_upgrade=Filter('upgrade')
+    filter_remove=Filter('remove')
+    #filter_trigproc={'packages':list(),'datetimes':list(),'versions':list()}
+    #filter_upgrade={'packages':list(),'datetimes':list(),'versionChange':list()}
     result_dict={"state":list(),"packages":list(),"datetimes":list(),"versions":list()}
+    def add_to_result_dict(result_dict,package,datetime,version):
+        try:
+            index=result_dict['packages'].index(package)
+            result_dict['versions'][index]=version
+            result_dict['datetimes'][index]=datetime
+        except:
+            #really new package
+            dict_item_add(result_dict,package,datetime,version,state="new")
+
+    len_of_lines=len(lines)
+    gcount=-1
     for line in lines:
+        gcount+=1
         items=line.split(" ")
         datetime=datetime2sec(items[0]+" "+items[1])
         if(items[2]=="status"): #installed packages,should filt before put in quene
             package=items[4]
             version=items[5].strip()
-            try:
-                index=filter_trigproc['packages'].index(package)
-                #found in trigproc filter
-                if(datetime-filter_trigproc['datetimes'][index]<6000  and \
-                        version==filter_trigproc['versions'][index]):#6000s 以内安装 且版本匹配
-                    dict_item_remove(filter_trigproc,index)
-                    continue
-            except ValueError:
-                try:
-                    index=filter_upgrade['packages'].index(package)
-                    #found in upgrade packages
-                    if(datetime-filter_upgrade['datetimes'][index]<6000  and \
-                        version==filter_upgrade['versionChange'][index][1]):#6000s 以内安装 且版本匹配
-                        filter_upgrade['packages'].pop(index)
-                        filter_upgrade['datetimes'].pop(index)
-                        filter_upgrade['versionChange'].pop(index)
-                        dict_item_add(result_dict,package,datetime,version,state="upgrade")
-                except:#not in filters,new package,also can be the same package same version
-#check if duplicated before insert
-                    try:
-                        index=result_dict['packages'].index(package)
-                        result_dict['versions'][index]=version
-                        result_dict['datetimes'][index]=datetime
-                    except:
-                        #really new package
-                        dict_item_add(result_dict,package,datetime,version,state="new")
+            index=filter_remove.is_in_filter(package,datetime,version)
+            if(index!=None):#in filter remove
+                filter_remove.delete_item(index)
+                continue
+            index=filter_upgrade.is_in_filter(package,datetime,version)
+            if(index!=None):#in filter upgrade
+                filter_upgrade.delete_item(index)
+                dict_item_add(result_dict,package,datetime,version,state="upgrade")
+                continue
+            index=filter_trigproc.is_in_filter(package,datetime,version)
+            if(index!=None):#in filter trigproc
+                filter_trigproc.delete_item(index)
+                continue
+            add_to_result_dict(result_dict,package,datetime,version)
+        elif(items[2]=='install'):
+            if(gcount+1<len_of_lines):
+                next_items=lines[gcount+1].split()
+                if(next_items[3]!='installed'):
+                    package=items[3]
+                    version=items[4]
+                    add_to_result_dict(result_dict,package,datetime,version)
+            else:
+                package=items[3]
+                version=items[4]
+                add_to_result_dict(result_dict,package,datetime,version)
         elif(items[2]=="upgrade"):
             package=items[3]
             version_old=items[4].strip()
             version_new=items[5].strip()
 #add to filter
-            filter_upgrade['packages'].append(package)
-            filter_upgrade['datetimes'].append(datetime)
-            filter_upgrade['versionChange'].append([version_old,version_new])
+            filter_upgrade.add_item(package,datetime,(version_old,version_new))
         elif(items[2]=="trigproc"):
             package=items[3].strip()
             version=items[4].strip()
-            dict_item_add(filter_trigproc,package,datetime,version)
+            filter_trigproc.add_item(package,datetime,version)
+        elif(items[2]=="remove"):
+            package=items[3].strip()
+            version=items[4].strip()
+            filter_remove.add_item(package,datetime,version)
+
     return result_dict
 
 
 
 log_file="/var/log/dpkg.log"
 
-installed_results=os.popen("grep -E '(\ installed|trigproc|upgrade)' "+log_file)
-removed_results=os.popen("grep \ not-installed "+log_file)
+installed_results=os.popen("grep -E '(\ installed|trigproc|upgrade|remove|install)' "+log_file)
+removed_results=os.popen("grep -E '(\ not-installed|remove)' "+log_file)
 
 installed_lines=installed_results.readlines()
 removed_lines=removed_results.readlines()
 
 installed_packages_dict=get_installed_packages(installed_lines)
-removed_packages_dict=get_dict_by_lines(removed_lines)
+removed_packages_dict=get_removed_packages(removed_lines)
 
 #debug
 dict_count=len(installed_packages_dict['packages'])
