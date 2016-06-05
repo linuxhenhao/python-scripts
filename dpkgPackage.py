@@ -199,8 +199,8 @@ def get_installed_packages(lines):
 
 log_file="/var/log/dpkg.log"
 
-installed_results=os.popen("grep -E '(\ installed|trigproc|upgrade|remove|install)' "+log_file)
-removed_results=os.popen("grep -E '(\ not-installed|remove)' "+log_file)
+installed_results=os.popen("grep -Ea '(\ installed|trigproc|upgrade|remove|install)' "+log_file)
+removed_results=os.popen("grep -Ea '(\ not-installed|remove)' "+log_file)
 
 installed_lines=installed_results.readlines()
 removed_lines=removed_results.readlines()
