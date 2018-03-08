@@ -1,0 +1,5 @@
+this.session = this.securityEncode(authInfo[3], pwd, authInfo[4]);
+		url += ("&id=" + this.encodePara(this.session));
+
+认证使用code=7&async=0&id=xxx的方式进行，其中xxx的id是通过上面两行代码算出来的
+继续研究就靠这个了
