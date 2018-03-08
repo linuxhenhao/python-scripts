@@ -212,14 +212,14 @@ removed_packages_dict=get_removed_packages(removed_lines)
 dict_count=len(installed_packages_dict['packages'])
 for i in range(dict_count):
     if(installed_packages_dict['packages'][i].find("linux-modules-4.2-rc7")!=-1):
-        print("DEBUG"+installed_packages_dict['packages'][i],installed_packages_dict['versions'][i],installed_packages_dict['datetimes'][i])
+        print(("DEBUG"+installed_packages_dict['packages'][i],installed_packages_dict['versions'][i],installed_packages_dict['datetimes'][i]))
 #end debug
 removed_index=-1
 for removed_packages_name in removed_packages_dict['packages']:
     removed_index+=1
 #debug
     if(removed_packages_name.find("linux-modules-4.2")!=-1):
-        print("DEBUG remove",removed_packages_dict['packages'][removed_index],removed_packages_dict['versions'][removed_index],removed_packages_dict['datetimes'][removed_index])
+        print(("DEBUG remove",removed_packages_dict['packages'][removed_index],removed_packages_dict['versions'][removed_index],removed_packages_dict['datetimes'][removed_index]))
 #end debug
     try:
         index=installed_packages_dict['packages'].index(removed_packages_name)
@@ -227,7 +227,7 @@ for removed_packages_name in removed_packages_dict['packages']:
 #removed datetime > datetime
             dict_item_remove(installed_packages_dict,index,state=True)
     except:
-        print("removed package "+removed_packages_name+" not found in installed_packages_list")
+        print(("removed package "+removed_packages_name+" not found in installed_packages_list"))
 
 #dict to list
 count=len(installed_packages_dict['packages'])
@@ -244,17 +244,17 @@ def compare_package_line_by_date(line1,line2):
     else:
         return -1
 
-installed_packages_list.sort(cmp=compare_package_line_by_date)
+installed_packages_list.sort(key=lambda li: li[2])
 
 
 
 count=len(installed_packages_list)
-print installed_packages_list[0][0],installed_packages_list[0][1]
+print(installed_packages_list[0][0],installed_packages_list[0][1])
 for i in range(count-1):
     t1=installed_packages_list[i][2]
     t2=installed_packages_list[i+1][2]
     if(t2-t1>600):
         print('\n')
-    print installed_packages_list[i+1][0],installed_packages_list[i+1][1]
+    print("{} {}".format(installed_packages_list[i+1][0],installed_packages_list[i+1][1]))
 
 
